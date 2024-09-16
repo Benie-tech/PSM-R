@@ -20,37 +20,91 @@ dplyr: For data manipulation
 ggplot2: For visualization
 You can install these packages in R using:
 install.packages(c("MatchIt", "dplyr", "ggplot2"))
-My Workflow
-# Data Preprocessing
-The coliform time series data is preprocessed by:
-Handling missing values using linear interpolation to maintain a continuous time series.
-Normalizing coliform levels using the MinMaxScaler to scale data between 0 and 1.
-Creating a treatment indicator for high population growth based on the 75th percentile of population growth.
-# Propensity Score Calculation
-Logistic regression is used to estimate the propensity scores:
+# My Workflow
+#Install and load necessary packages
+install.packages("MatchIt")   # For Propensity Score Matching
+install.packages("dplyr")     # For data manipulation
+install.packages("ggplot2")   # For plotting
+
+# Load the libraries
+library(MatchIt)
+library(dplyr)
+library(ggplot2)
+
+# Load my data
+# Adjust the file path as per your setup
+data <- read.csv("C:/Users/KEMI/Desktop/stationsdatapredictions.csv")
+
+# Clean up unnecessary columns (e.g., 'Unnamed: 0')
+# Check the structure of the data to ensure correct column names
+str(data)
+
+# If there are unwanted columns, remove them (e.g., Unnamed: 0)
+if ("Unnamed: 0" %in% colnames(data)) {
+  data <- data %>% select(-Unnamed..0)
+}
+# Create the treatment indicator variable based on population growth
+# Calculate the 75th percentile threshold for high population growth
+high_growth_threshold <- quantile(data$Population, 0.75, na.rm = TRUE)
+
+# Create the treatment variable (1 for high growth, 0 for low/no growth)
+data <- data %>%
+  mutate(Treatment = ifelse(Population > high_growth_threshold, 1, 0))
+
+# Perform Propensity Score Matching using the MatchIt package
+# Match based on the selected covariates (e.g., Q, G, J, etc.)
 psm_model <- matchit(Treatment ~ Q + G + J + N + P + B + D + E, 
                      data = data, 
                      method = "nearest", 
                      distance = "logit")
-Where Treatment represents high population growth (top 25% of growth rates), and Q, G, J, N, P, B, D, E represent coliform levels at different stations.
-# Matching and ATT Calculation
-Matched data is extracted, and the Average Treatment Effect on the Treated (ATT) is calculated to measure the impact of population growth on coliform levels:
+#Step 6: Summarize the PSM results and get the matched data
+summary(psm_model)
+
+# Get the matched data
 matched_data <- match.data(psm_model)
-# Calculate ATT for coliform levels across stations
+
+# Filter the matched data into treatment and control groups
 treatment_group <- matched_data %>% filter(Treatment == 1)
 control_group <- matched_data %>% filter(Treatment == 0)
+
+# Calculate the ATT (Average Treatment Effect on the Treated)
+# Calculate the mean values for each station in treatment and control groups
 mean_treatment <- treatment_group %>% summarise(across(c(Q, G, J, N, P, B, D, E), mean))
 mean_control <- control_group %>% summarise(across(c(Q, G, J, N, P, B, D, E), mean))
+
+# Calculate ATT as the difference between the two groups
 ATT <- mean_treatment - mean_control
-# Visualization
-Visualize the ATT for each station using ggplot2:
+
+# Convert ATT to numeric values if necessary
+att_values <- as.numeric(ATT)
+
+# Print the ATT values
+print("Average Treatment Effect on the Treated (ATT):")
+print(ATT)
+
+# Plot the ATT values using ggplot2
+# Define station names
+stations <- c("Q", "G", "J", "N", "P", "B", "D", "E")
+
+# Create a bar plot to visualize the ATT for each station
 ggplot(data = data.frame(Station = stations, ATT = att_values), aes(x = Station, y = ATT)) +
   geom_bar(stat = "identity", fill = "steelblue") +
   theme_minimal() +
-  labs(y = "ATT (Coliform Concentration Difference)", x = "Station")
+  labs(title = "Average Treatment Effect on the Treated (ATT) by Station",
+       y = "ATT (Coliform Concentration Difference)", x = "Station")
+
+
+# Create a bar plot to visualize the ATT for each station with custom styling and no title
+ggplot(data = data.frame(Station = stations, ATT = att_values), aes(x = Station, y = ATT)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  theme_minimal() +
+  labs(y = "ATT (Coliform Concentration Difference)", x = "Station") +  # Only specify X and Y labels
+  theme(
+    panel.grid = element_blank(),   # Remove gridlines
+    panel.border = element_rect(color = "black", fill = NA, size = 1),  # Add borders around the plot
+    axis.line = element_line(color = "black", size = 1)  # Add axis lines for X and Y axes
+  )
+
 # Interpretation
 The analysis shows which stations are most impacted by population growth, based on the calculated ATT values. Positive ATT values indicate an increase in coliform levels due to high population growth, while negative or zero values suggest minimal or no effect.
 
-# Results
-Station J and Q exhibited significant increases in coliform concentrations during periods of high population growth.
-Station P showed a slight decrease in coliform levels, potentially indicating better management or environmental conditions in this area.

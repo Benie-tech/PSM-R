@@ -57,7 +57,7 @@ psm_model <- matchit(Treatment ~ Q + G + J + N + P + B + D + E,
                      data = data, 
                      method = "nearest", 
                      distance = "logit")
-#Step 6: Summarize the PSM results and get the matched data
+# Summarize the PSM results and get the matched data
 summary(psm_model)
 
 # Get the matched data
@@ -106,5 +106,5 @@ ggplot(data = data.frame(Station = stations, ATT = att_values), aes(x = Station,
   )
 
 # Interpretation
-The analysis shows which stations are most impacted by population growth, based on the calculated ATT values. Positive ATT values indicate an increase in coliform levels due to high population growth, while negative or zero values suggest minimal or no effect.
+Positive ATT values indicate an increase in coliform levels due to high population growth, while negative or zero values suggest minimal or no effect.
 
